@@ -609,12 +609,110 @@
   .tasks-list::-webkit-scrollbar { width: 3px; }
   .memories-list::-webkit-scrollbar-thumb,
   .tasks-list::-webkit-scrollbar-thumb { background: var(--border); }
+
+  /* ── MOBILE NAV BAR ───────────────────────────────────────────────────── */
+  .mobile-nav {
+    display: none;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 60px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    z-index: 100;
+    align-items: stretch;
+  }
+
+  .mobile-nav-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 10px;
+    color: var(--text-muted);
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.5px;
+    transition: color 0.2s;
+  }
+  .mobile-nav-btn.active { color: var(--accent); }
+  .mobile-nav-btn svg { width: 20px; height: 20px; }
+
+  /* Sidebar overlay on mobile */
+  .sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(26,24,48,0.4);
+    z-index: 49;
+    backdrop-filter: blur(2px);
+  }
+
+  /* ── RESPONSIVE BREAKPOINTS ───────────────────────────────────────────── */
+  @media (max-width: 768px) {
+    body { flex-direction: column; height: 100dvh; }
+
+    /* Sidebar becomes a fixed drawer */
+    .sidebar {
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      width: 300px;
+      transform: translateX(-100%);
+      transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+      z-index: 50;
+      box-shadow: 4px 0 24px rgba(108,92,231,0.12);
+    }
+    .sidebar.open { transform: translateX(0); }
+    .sidebar-overlay.visible { display: block; }
+
+    .main { width: 100%; height: 100dvh; padding-bottom: 60px; }
+
+    /* Chat header on mobile */
+    .chat-header { padding: 14px 16px; }
+    .chat-title { font-size: 16px; }
+    .clear-btn { font-size: 10px; padding: 5px 10px; }
+
+    /* Messages */
+    .messages { padding: 16px; gap: 14px; }
+    .msg-bubble { max-width: 85%; font-size: 13px; padding: 11px 14px; }
+
+    /* API banner stacks vertically */
+    .api-banner { flex-direction: column; align-items: stretch; margin: 10px 12px; gap: 8px; }
+    .api-key-input { width: 100%; }
+
+    /* Input area */
+    .input-area { padding: 10px 12px 14px; }
+    .chat-input { font-size: 16px; /* prevents iOS zoom */ }
+    .send-btn { width: 46px; height: 46px; font-size: 17px; }
+    .input-hint { font-size: 10px; }
+
+    /* Show mobile nav */
+    .mobile-nav { display: flex; }
+
+    /* Welcome screen */
+    .welcome { padding: 24px 12px; }
+    .welcome-title { font-size: 26px; }
+    .welcome-sub { font-size: 13px; }
+    .suggestions { gap: 6px; }
+    .suggestion { font-size: 11px; padding: 7px 12px; }
+  }
+
+  @media (max-width: 400px) {
+    .msg-bubble { max-width: 92%; font-size: 13px; }
+    .welcome-title { font-size: 22px; }
+  }
 </style>
 </head>
 <body>
 
+<!-- Sidebar overlay (mobile) -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
 <!-- SIDEBAR -->
-<aside class="sidebar">
+<aside class="sidebar" id="sidebar">
   <div class="logo">
     <div class="logo-name">ARIA</div>
     <div class="logo-sub">Personal AI Assistant</div>
@@ -645,7 +743,12 @@
 <!-- MAIN -->
 <main class="main">
   <div class="chat-header">
-    <div class="chat-title">Good to see you ✦</div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <button class="mobile-menu-btn" onclick="openSidebar()" style="display:none;background:none;border:none;cursor:pointer;padding:4px;color:var(--text-dim)" id="menuBtn">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="chat-title">Good to see you ✦</div>
+    </div>
     <div style="display:flex;gap:12px;align-items:center">
       <button class="clear-btn" onclick="clearChat()">Clear chat</button>
       <div class="status-dot"><div class="dot" id="syncDot"></div><span id="syncStatus">Online</span></div>
@@ -1078,8 +1181,68 @@ Key behaviors:
   }
   window.autoResize = autoResize;
 
+  // ── MOBILE ─────────────────────────────────────────────────────────────────
+  function isMobile() { return window.innerWidth <= 768; }
+
+  function openSidebar() {
+    document.getElementById('sidebar').classList.add('open');
+    document.getElementById('sidebarOverlay').classList.add('visible');
+  }
+  window.openSidebar = openSidebar;
+
+  function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('visible');
+  }
+  window.closeSidebar = closeSidebar;
+
+  window.mobileTab = function(tab) {
+    ['chat','memory','tasks'].forEach(t => {
+      document.getElementById('nav' + t.charAt(0).toUpperCase() + t.slice(1)).classList.remove('active');
+    });
+    document.getElementById('nav' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+
+    if (tab === 'chat') {
+      closeSidebar();
+    } else {
+      // Open sidebar and scroll to the right section
+      openSidebar();
+      setTimeout(() => {
+        const target = tab === 'memory'
+          ? document.querySelector('.sidebar-section')
+          : document.querySelector('.tasks-section');
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 50);
+    }
+  }
+
+  // Show/hide hamburger menu button based on screen size
+  function handleResize() {
+    const btn = document.getElementById('menuBtn');
+    if (btn) btn.style.display = isMobile() ? 'block' : 'none';
+    if (!isMobile()) closeSidebar();
+  }
+  window.addEventListener('resize', handleResize);
+  handleResize();
+
   // ── Boot ───────────────────────────────────────────────────────────────────
   initFirebase();
 </script>
+<!-- Mobile bottom nav -->
+<nav class="mobile-nav" id="mobileNav">
+  <button class="mobile-nav-btn active" id="navChat" onclick="mobileTab('chat')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    Chat
+  </button>
+  <button class="mobile-nav-btn" id="navMemory" onclick="mobileTab('memory')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/><path d="M12 8v4l3 3"/></svg>
+    Memory
+  </button>
+  <button class="mobile-nav-btn" id="navTasks" onclick="mobileTab('tasks')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    Tasks
+  </button>
+</nav>
+
 </body>
 </html>
