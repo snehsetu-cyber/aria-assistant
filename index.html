@@ -1230,7 +1230,6 @@
           window.deleteTask(Number(el.dataset.id));
         });
       });
-      }).join('');
     }
 
     // ── MEMORY ─────────────────────────────────────────────────────────────────
@@ -1441,7 +1440,6 @@ Key behaviors:
       document.querySelectorAll('.suggestion-btn').forEach(el => {
         el.addEventListener('click', () => window.useSuggestion(el));
       });
-    }
     }
 
     window.useSuggestion = function (el) {
