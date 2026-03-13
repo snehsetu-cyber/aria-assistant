@@ -995,7 +995,7 @@
       <div class="api-banner-text">🔑 Enter your Anthropic API key to activate ARIA</div>
       <input class="api-key-input" id="apiKeyInput" type="password" placeholder="sk-ant-..."
         />
-      <button class="api-save-btn">Connect</button>
+      <button class="api-save-btn" id="apiConnectBtn">Connect</button>
     </div>
 
     <div class="messages" id="messages">
@@ -1137,9 +1137,14 @@
     // ── API KEY ────────────────────────────────────────────────────────────────
     window.saveApiKey = function () {
       const val = document.getElementById('apiKeyInput').value.trim();
-      if (!val.startsWith('sk-ant-') && !val.startsWith('sk-')) {
+      const btn = document.getElementById('apiConnectBtn');
+      if (!val || (!val.startsWith('sk-ant-') && !val.startsWith('sk-'))) {
         document.getElementById('apiKeyInput').style.borderColor = 'var(--red)';
-        setTimeout(() => document.getElementById('apiKeyInput').style.borderColor = '', 2000);
+        if (btn) { btn.textContent = 'Invalid key!'; btn.style.background = 'var(--red)'; }
+        setTimeout(() => {
+          document.getElementById('apiKeyInput').style.borderColor = '';
+          if (btn) { btn.textContent = 'Connect'; btn.style.background = ''; }
+        }, 2000);
         return;
       }
       apiKey = val;
@@ -1636,7 +1641,7 @@ Key behaviors:
       document.querySelector('.clear-btn')?.addEventListener('click', window.clearChat);
 
       // API key connect
-      document.querySelector('.api-save-btn')?.addEventListener('click', window.saveApiKey);
+      $('apiConnectBtn')?.addEventListener('click', window.saveApiKey);
       $('apiKeyInput')?.addEventListener('keydown', e => { if (e.key === 'Enter') window.saveApiKey(); });
 
       // Send button and chat input
