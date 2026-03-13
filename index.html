@@ -1105,10 +1105,12 @@
             }
             renderMemories();
             renderTasks();
-            showSyncStatus('synced');
-          } else {
-            showSyncStatus('synced');
           }
+          // Always show synced once we get any response from Firebase
+          showSyncStatus('synced');
+        }, (error) => {
+          console.error("Firestore listener error:", error);
+          showSyncStatus('local');
         });
       } catch (e) {
         console.error("Firebase load error:", e);
