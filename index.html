@@ -1092,11 +1092,14 @@
       }
     }
 
+    let isSaving = false;
+
     async function loadFromFirebase() {
       if (!firebaseReady) return;
       try {
-        // Listen for real-time updates
         onSnapshot(doc(db, 'aria', 'data'), (snap) => {
+          // Don't overwrite local state while we're saving
+          if (isSaving) return;
           if (snap.exists()) {
             const data = snap.data();
             memories = data.memories || [];
@@ -1108,7 +1111,6 @@
             renderMemories();
             renderTasks();
           }
-          // Always show synced once we get any response from Firebase
           showSyncStatus('synced');
         }, (error) => {
           console.error("Firestore listener error:", error);
@@ -1123,13 +1125,17 @@
     async function saveToFirebase() {
       if (!firebaseReady) return;
       try {
+        isSaving = true;
         await setDoc(doc(db, 'aria', 'data'), {
           memories,
           tasks,
           apiKey,
           updatedAt: new Date().toISOString()
         });
+        // Keep suppressed briefly so the snapshot triggered by our own write doesn't overwrite
+        setTimeout(() => { isSaving = false; }, 1000);
       } catch (e) {
+        isSaving = false;
         console.error("Firebase save error:", e);
       }
     }
