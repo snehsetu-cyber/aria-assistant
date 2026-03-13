@@ -1205,19 +1205,17 @@
 
     function renderTasks() {
       const list = document.getElementById('tasksList');
-      const noTasks = document.getElementById('noTasks');
+      if (!list) return;
       const validTasks = tasks.filter(t => t && typeof t.text === 'string');
       const active = validTasks.filter(t => !t.done);
-      const done = validTasks.filter(t => t.done);
+      const done   = validTasks.filter(t => t.done);
       const sorted = [...active, ...done];
 
       if (sorted.length === 0) {
-        noTasks.style.display = '';
-        list.innerHTML = '';
-        list.appendChild(noTasks);
+        list.innerHTML = '<div class="empty-state">No tasks yet.</div>';
         return;
       }
-      noTasks.style.display = 'none';
+
       list.innerHTML = sorted.map(t => {
         const timeLabel = formatReminderTime(t.reminderTime);
         return `
@@ -1231,7 +1229,6 @@
         </div>`;
       }).join('');
 
-      // Attach event listeners after rendering
       list.querySelectorAll('.task-toggle').forEach(el => {
         el.addEventListener('click', () => window.toggleTask(el.dataset.id));
       });
@@ -1259,14 +1256,11 @@
 
     function renderMemories() {
       const list = document.getElementById('memoriesList');
-      const noMem = document.getElementById('noMemories');
+      if (!list) return;
       if (memories.length === 0) {
-        noMem.style.display = '';
-        list.innerHTML = '';
-        list.appendChild(noMem);
+        list.innerHTML = '<div class="empty-state">No memories yet.<br>I\'ll learn as we talk.</div>';
         return;
       }
-      noMem.style.display = 'none';
       list.innerHTML = memories.map((m, i) => `
       <div class="memory-chip">
         <span style="flex:1">${escHtml(m)}</span>
