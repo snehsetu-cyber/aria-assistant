@@ -1489,8 +1489,68 @@ Key behaviors:
       }
     }
 
+    function playReminderSound() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        [523, 659, 784].forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.frequency.value = freq;
+          osc.type = 'sine';
+          gain.gain.setValueAtTime(0.3, ctx.currentTime + i * 0.18);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.18 + 0.3);
+          osc.start(ctx.currentTime + i * 0.18);
+          osc.stop(ctx.currentTime + i * 0.18 + 0.3);
+        });
+      } catch(e) {}
+    }
+
+    function showReminderPopup(taskText) {
+      // Remove existing popup if any
+      const existing = document.getElementById('reminderPopup');
+      if (existing) existing.remove();
+
+      const popup = document.createElement('div');
+      popup.id = 'reminderPopup';
+      popup.style.cssText = `
+        position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+        background: white; border: 2px solid var(--accent);
+        border-radius: 16px; padding: 20px 24px; z-index: 9999;
+        box-shadow: 0 8px 40px rgba(108,92,231,0.25);
+        display: flex; align-items: center; gap: 14px;
+        font-family: 'Syne', sans-serif; max-width: 360px; width: 90%;
+        animation: popIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
+      `;
+      popup.innerHTML = `
+        <div style="font-size:28px">⏰</div>
+        <div style="flex:1">
+          <div style="font-size:11px;color:var(--text-muted);letter-spacing:2px;text-transform:uppercase;font-family:'DM Mono',monospace;margin-bottom:4px">ARIA Reminder</div>
+          <div style="font-size:15px;font-weight:600;color:var(--text)">${escHtml(taskText)}</div>
+        </div>
+        <button onclick="document.getElementById('reminderPopup').remove()" style="
+          background:var(--accent);border:none;border-radius:8px;
+          color:white;padding:8px 14px;cursor:pointer;font-family:'Syne',sans-serif;
+          font-size:12px;white-space:nowrap;flex-shrink:0
+        ">Got it</button>
+      `;
+
+      // Add animation keyframe if not present
+      if (!document.getElementById('reminderPopupStyle')) {
+        const style = document.createElement('style');
+        style.id = 'reminderPopupStyle';
+        style.textContent = '@keyframes popIn { from { opacity:0; transform:translateX(-50%) translateY(-12px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }';
+        document.head.appendChild(style);
+      }
+
+      document.body.appendChild(popup);
+
+      // Auto dismiss after 30 seconds
+      setTimeout(() => { if (popup.parentNode) popup.remove(); }, 30000);
+    }
+
     function checkReminders() {
-      if (Notification.permission !== 'granted') return;
       const now = new Date();
       let changed = false;
       tasks.forEach(t => {
@@ -1498,14 +1558,27 @@ Key behaviors:
         const reminderDate = new Date(t.reminderTime);
         if (isNaN(reminderDate)) return;
         const diff = reminderDate - now;
-        // Fire if within a 30 second window (matching the interval)
         if (diff <= 0 && diff > -30000) {
           t.reminded = true;
           changed = true;
-          new Notification('ARIA Reminder ⏰', {
-            body: t.text,
-            icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%236c5ce7"/><text y=".9em" font-size="70" x="15" fill="white">A</text></svg>'
-          });
+
+          // 1. In-app popup (always works)
+          showReminderPopup(t.text);
+
+          // 2. Play sound
+          playReminderSound();
+
+          // 3. Browser notification (if allowed)
+          if (Notification.permission === 'granted') {
+            try {
+              new Notification('ARIA Reminder ⏰', {
+                body: t.text,
+                icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%236c5ce7"/><text y=".9em" font-size="70" x="15" fill="white">A</text></svg>'
+              });
+            } catch(e) {}
+          }
+
+          // 4. Message in chat
           appendMessage('assistant', '⏰ Reminder: **' + t.text + '**');
         }
       });
