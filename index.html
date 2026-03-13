@@ -927,7 +927,7 @@
 <body>
 
   <!-- Sidebar overlay (mobile) -->
-  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+  <div class="sidebar-overlay" id="sidebarOverlay" id="sidebarOverlay"></div>
 
   <!-- SIDEBAR -->
   <aside class="sidebar" id="sidebar">
@@ -946,11 +946,11 @@
     <div class="tasks-section">
       <div class="tasks-header">
         <div class="sidebar-label" style="margin-bottom:0">Tasks</div>
-        <button class="add-task-btn" onclick="toggleTaskInput()" title="Add task">+</button>
+        <button class="add-task-btn" title="Add task">+</button>
       </div>
       <div class="task-input-row" id="taskInputRow">
-        <input class="task-input" id="newTaskInput" placeholder="Add a task..." onkeydown="taskKeydown(event)" />
-        <button class="task-save-btn" onclick="addTask()">Add</button>
+        <input class="task-input" id="newTaskInput" placeholder="Add a task..." />
+        <button class="task-save-btn">Add</button>
       </div>
       <div class="tasks-list" id="tasksList">
         <div class="empty-state" id="noTasks">No tasks yet.</div>
@@ -962,7 +962,7 @@
   <main class="main">
     <div class="chat-header">
       <div style="display:flex;align-items:center;gap:12px">
-        <button class="mobile-menu-btn" onclick="openSidebar()"
+        <button class="mobile-menu-btn"
           style="display:none;background:none;border:none;cursor:pointer;padding:4px;color:var(--text-dim)"
           id="menuBtn">
           <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
@@ -974,7 +974,7 @@
         <div class="chat-title">Good to see you ✦</div>
       </div>
       <div style="display:flex;gap:12px;align-items:center">
-        <button class="clear-btn" onclick="clearChat()">Clear chat</button>
+        <button class="clear-btn">Clear chat</button>
         <div class="status-dot">
           <div class="dot" id="syncDot"></div><span id="syncStatus">Online</span>
         </div>
@@ -994,8 +994,8 @@
     <div class="api-banner" id="apiBanner">
       <div class="api-banner-text">🔑 Enter your Anthropic API key to activate ARIA</div>
       <input class="api-key-input" id="apiKeyInput" type="password" placeholder="sk-ant-..."
-        onkeydown="if(event.key==='Enter')saveApiKey()" />
-      <button class="api-save-btn" onclick="saveApiKey()">Connect</button>
+        />
+      <button class="api-save-btn">Connect</button>
     </div>
 
     <div class="messages" id="messages">
@@ -1003,10 +1003,10 @@
         <div class="welcome-title">Hello, I'm ARIA</div>
         <div class="welcome-sub">Your personal AI assistant — I remember, I help, I adapt.</div>
         <div class="suggestions">
-          <div class="suggestion" onclick="useSuggestion(this)">What can you remember about me?</div>
-          <div class="suggestion" onclick="useSuggestion(this)">Help me plan my week</div>
-          <div class="suggestion" onclick="useSuggestion(this)">I need to brainstorm ideas</div>
-          <div class="suggestion" onclick="useSuggestion(this)">Summarize what we've talked about</div>
+          <div class="suggestion" class="suggestion-btn">What can you remember about me?</div>
+          <div class="suggestion" class="suggestion-btn">Help me plan my week</div>
+          <div class="suggestion" class="suggestion-btn">I need to brainstorm ideas</div>
+          <div class="suggestion" class="suggestion-btn">Summarize what we've talked about</div>
         </div>
       </div>
     </div>
@@ -1014,8 +1014,8 @@
     <div class="input-area">
       <div class="input-row">
         <textarea class="chat-input" id="chatInput" placeholder="Message ARIA..." rows="1"
-          onkeydown="inputKeydown(event)" oninput="autoResize(this)"></textarea>
-        <button class="send-btn" id="sendBtn" onclick="sendMessage()">➤</button>
+         ></textarea>
+        <button class="send-btn" id="sendBtn">➤</button>
       </div>
       <div class="input-hint">Enter to send · Shift+Enter for new line</div>
     </div>
@@ -1431,12 +1431,17 @@ Key behaviors:
         <div class="welcome-title">Hello, I'm ARIA</div>
         <div class="welcome-sub">Your personal AI assistant — I remember, I help, I adapt.</div>
         <div class="suggestions">
-          <div class="suggestion" onclick="useSuggestion(this)">What can you remember about me?</div>
-          <div class="suggestion" onclick="useSuggestion(this)">Help me plan my week</div>
-          <div class="suggestion" onclick="useSuggestion(this)">I need to brainstorm ideas</div>
-          <div class="suggestion" onclick="useSuggestion(this)">Summarize what we've talked about</div>
+          <div class="suggestion suggestion-btn">What can you remember about me?</div>
+          <div class="suggestion suggestion-btn">Help me plan my week</div>
+          <div class="suggestion suggestion-btn">I need to brainstorm ideas</div>
+          <div class="suggestion suggestion-btn">Summarize what we've talked about</div>
         </div>
       </div>`;
+      // Re-attach suggestion listeners
+      document.querySelectorAll('.suggestion-btn').forEach(el => {
+        el.addEventListener('click', () => window.useSuggestion(el));
+      });
+    }
     }
 
     window.useSuggestion = function (el) {
@@ -1551,7 +1556,7 @@ Key behaviors:
           <div style="font-size:11px;color:var(--text-muted);letter-spacing:2px;text-transform:uppercase;font-family:'DM Mono',monospace;margin-bottom:4px">ARIA Reminder</div>
           <div style="font-size:15px;font-weight:600;color:var(--text)">${escHtml(taskText)}</div>
         </div>
-        <button onclick="document.getElementById('reminderPopup').remove()" style="
+        <button id="reminderPopupClose" style="
           background:var(--accent);border:none;border-radius:8px;
           color:white;padding:8px 14px;cursor:pointer;font-family:'Syne',sans-serif;
           font-size:12px;white-space:nowrap;flex-shrink:0
@@ -1567,6 +1572,7 @@ Key behaviors:
       }
 
       document.body.appendChild(popup);
+      document.getElementById('reminderPopupClose')?.addEventListener('click', () => popup.remove());
 
       // Auto dismiss after 30 seconds
       setTimeout(() => { if (popup.parentNode) popup.remove(); }, 30000);
@@ -1612,23 +1618,63 @@ Key behaviors:
 
     requestNotificationPermission();
     setInterval(checkReminders, 30000);
+
+    // ── WIRE UP ALL EVENT LISTENERS ───────────────────────────────────────────
+    function attachListeners() {
+      const $ = id => document.getElementById(id);
+
+      // Sidebar overlay
+      $('sidebarOverlay')?.addEventListener('click', closeSidebar);
+
+      // Add task button and input
+      document.querySelector('.add-task-btn')?.addEventListener('click', window.toggleTaskInput);
+      document.querySelector('.task-save-btn')?.addEventListener('click', () => window.addTask());
+      $('newTaskInput')?.addEventListener('keydown', e => window.taskKeydown(e));
+
+      // Mobile menu button
+      document.querySelector('.mobile-menu-btn')?.addEventListener('click', openSidebar);
+
+      // Clear chat
+      document.querySelector('.clear-btn')?.addEventListener('click', window.clearChat);
+
+      // API key connect
+      document.querySelector('.api-save-btn')?.addEventListener('click', window.saveApiKey);
+      $('apiKeyInput')?.addEventListener('keydown', e => { if (e.key === 'Enter') window.saveApiKey(); });
+
+      // Send button and chat input
+      $('sendBtn')?.addEventListener('click', window.sendMessage);
+      $('chatInput')?.addEventListener('keydown', e => window.inputKeydown(e));
+      $('chatInput')?.addEventListener('input', e => window.autoResize(e.target));
+
+      // Mobile nav
+      $('navChat')?.addEventListener('click', () => window.mobileTab('chat'));
+      $('navMemory')?.addEventListener('click', () => window.mobileTab('memory'));
+      $('navTasks')?.addEventListener('click', () => window.mobileTab('tasks'));
+
+      // Suggestion chips
+      document.querySelectorAll('.suggestion-btn').forEach(el => {
+        el.addEventListener('click', () => window.useSuggestion(el));
+      });
+    }
+
+    attachListeners();
   </script>
   <!-- Mobile bottom nav -->
   <nav class="mobile-nav" id="mobileNav">
-    <button class="mobile-nav-btn active" id="navChat" onclick="mobileTab('chat')">
+    <button class="mobile-nav-btn active" id="navChat">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
       </svg>
       Chat
     </button>
-    <button class="mobile-nav-btn" id="navMemory" onclick="mobileTab('memory')">
+    <button class="mobile-nav-btn" id="navMemory">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z" />
         <path d="M12 8v4l3 3" />
       </svg>
       Memory
     </button>
-    <button class="mobile-nav-btn" id="navTasks" onclick="mobileTab('tasks')">
+    <button class="mobile-nav-btn" id="navTasks">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <polyline points="9 11 12 14 22 4" />
         <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
