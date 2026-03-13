@@ -298,10 +298,12 @@
 
     .task-del {
       color: var(--text-muted);
-      font-size: 14px;
-      opacity: 0;
-      transition: opacity 0.2s, color 0.2s;
+      font-size: 18px;
+      opacity: 1;
+      transition: color 0.2s;
       cursor: pointer;
+      padding: 0 2px;
+      flex-shrink: 0;
     }
 
     .task-item:hover .task-del {
@@ -1098,7 +1100,7 @@
           if (snap.exists()) {
             const data = snap.data();
             memories = data.memories || [];
-            tasks = (data.tasks || []).map(t => ({ ...t, id: t.id || Date.now() }));
+            tasks = (data.tasks || []).map(t => ({ reminded: false, reminderTime: null, done: false, ...t, id: t.id || Date.now() }));
             if (data.apiKey && !apiKey) {
               apiKey = data.apiKey;
               document.getElementById('apiBanner').style.display = 'none';
@@ -1490,14 +1492,16 @@ Key behaviors:
     function checkReminders() {
       if (Notification.permission !== 'granted') return;
       const now = new Date();
+      let changed = false;
       tasks.forEach(t => {
         if (t.done || t.reminded || !t.reminderTime) return;
         const reminderDate = new Date(t.reminderTime);
         if (isNaN(reminderDate)) return;
         const diff = reminderDate - now;
-        if (diff <= 0 && diff > -60000) {
+        // Fire if within a 30 second window (matching the interval)
+        if (diff <= 0 && diff > -30000) {
           t.reminded = true;
-          saveToFirebase();
+          changed = true;
           new Notification('ARIA Reminder ⏰', {
             body: t.text,
             icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%236c5ce7"/><text y=".9em" font-size="70" x="15" fill="white">A</text></svg>'
@@ -1505,6 +1509,10 @@ Key behaviors:
           appendMessage('assistant', '⏰ Reminder: **' + t.text + '**');
         }
       });
+      if (changed) {
+        renderTasks();
+        saveToFirebase();
+      }
     }
 
     requestNotificationPermission();
