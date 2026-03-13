@@ -1210,14 +1210,26 @@
       list.innerHTML = sorted.map(t => {
         const timeLabel = formatReminderTime(t.reminderTime);
         return `
-        <div class="task-item ${t.done ? 'done' : ''}" onclick="toggleTask(${t.id})">
-          <div class="task-check">${t.done ? '✓' : ''}</div>
-          <div style="flex:1;min-width:0">
+        <div class="task-item ${t.done ? 'done' : ''}" data-id="${t.id}">
+          <div class="task-check task-toggle" data-id="${t.id}">${t.done ? '✓' : ''}</div>
+          <div style="flex:1;min-width:0" class="task-toggle" data-id="${t.id}">
             <div class="task-text">${escHtml(t.text || '')}</div>
             ${timeLabel ? `<div style="font-size:10px;color:var(--accent);font-family:'DM Mono',monospace;margin-top:3px">⏰ ${timeLabel}</div>` : ''}
           </div>
-          <div class="task-del" onclick="event.stopPropagation();deleteTask(${t.id})">×</div>
+          <div class="task-del" data-id="${t.id}">×</div>
         </div>`;
+      }).join('');
+
+      // Attach event listeners after rendering
+      list.querySelectorAll('.task-toggle').forEach(el => {
+        el.addEventListener('click', () => window.toggleTask(Number(el.dataset.id)));
+      });
+      list.querySelectorAll('.task-del').forEach(el => {
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          window.deleteTask(Number(el.dataset.id));
+        });
+      });
       }).join('');
     }
 
@@ -1248,19 +1260,29 @@
       list.innerHTML = memories.map((m, i) => `
       <div class="memory-chip">
         <span style="flex:1">${escHtml(m)}</span>
-        <span class="del-mem" onclick="deleteMemory(${i})">×</span>
+        <span class="del-mem" data-idx="${i}">×</span>
       </div>
     `).join('');
+      list.querySelectorAll('.del-mem').forEach(el => {
+        el.addEventListener('click', () => window.deleteMemory(Number(el.dataset.idx)));
+      });
     }
 
     // ── CHAT ───────────────────────────────────────────────────────────────────
     function getSystemPrompt() {
-      const now = new Date().toISOString();
+      const now = new Date();
+      const localTime = now.toLocaleString('en-IN', { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, hour12: true, weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const tzOffset = -now.getTimezoneOffset();
+      const tzOffsetStr = (tzOffset >= 0 ? '+' : '-') + String(Math.floor(Math.abs(tzOffset)/60)).padStart(2,'0') + ':' + String(Math.abs(tzOffset)%60).padStart(2,'0');
       const memStr = memories.length ? `\n\nKnown facts about the user:\n${memories.map(m => '- ' + m).join('\n')}` : '';
       const taskStr = tasks.length ? `\n\nUser's current tasks:\n${tasks.map(t => `- [${t.done ? 'done' : 'todo'}] ${t.text}${t.reminderTime ? ' (reminder: ' + t.reminderTime + ')' : ''}`).join('\n')}` : '';
       return `You are ARIA, a warm, intelligent, and highly capable personal AI assistant. You are proactive, concise, and genuinely helpful.
 
-Current date/time: ${now}
+Current date/time: ${localTime}
+Timezone: ${tz} (UTC${tzOffsetStr})
+
+When calculating reminder times, always use the user's local timezone (UTC${tzOffsetStr}). Store reminderTime as ISO 8601 with the correct timezone offset, e.g. "2024-01-15T17:00:00${tzOffsetStr}".
 
 Key behaviors:
 1. MEMORY: When the user shares important personal facts (name, job, preferences, goals, etc.), extract them. Reply with a JSON block like: <memory>{"fact": "short fact here"}</memory>
