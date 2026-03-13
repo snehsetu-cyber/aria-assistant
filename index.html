@@ -1157,11 +1157,11 @@
       if (e.key === 'Escape') window.toggleTaskInput();
     }
 
-    function addTask(text) {
+    function addTask(text, reminderTime) {
       const input = document.getElementById('newTaskInput');
       const taskText = text || input.value.trim();
       if (!taskText) return;
-      tasks.push({ text: taskText, done: false, id: Date.now() });
+      tasks.push({ text: taskText, done: false, id: Date.now(), reminderTime: reminderTime || null, reminded: false });
       input.value = '';
       renderTasks();
       if (!text) document.getElementById('taskInputRow').classList.remove('visible');
@@ -1182,6 +1182,14 @@
       saveToFirebase();
     }
 
+    function formatReminderTime(isoString) {
+      if (!isoString) return null;
+      const d = new Date(isoString);
+      if (isNaN(d)) return null;
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) +
+        ' · ' + d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    }
+
     function renderTasks() {
       const list = document.getElementById('tasksList');
       const noTasks = document.getElementById('noTasks');
@@ -1197,13 +1205,18 @@
         return;
       }
       noTasks.style.display = 'none';
-      list.innerHTML = sorted.map(t => `
-      <div class="task-item ${t.done ? 'done' : ''}" onclick="toggleTask(${t.id})">
-        <div class="task-check">${t.done ? '✓' : ''}</div>
-        <div class="task-text">${escHtml(t.text || '')}</div>
-        <div class="task-del" onclick="event.stopPropagation();deleteTask(${t.id})">×</div>
-      </div>
-    `).join('');
+      list.innerHTML = sorted.map(t => {
+        const timeLabel = formatReminderTime(t.reminderTime);
+        return `
+        <div class="task-item ${t.done ? 'done' : ''}" onclick="toggleTask(${t.id})">
+          <div class="task-check">${t.done ? '✓' : ''}</div>
+          <div style="flex:1;min-width:0">
+            <div class="task-text">${escHtml(t.text || '')}</div>
+            ${timeLabel ? `<div style="font-size:10px;color:var(--accent);font-family:'DM Mono',monospace;margin-top:3px">⏰ ${timeLabel}</div>` : ''}
+          </div>
+          <div class="task-del" onclick="event.stopPropagation();deleteTask(${t.id})">×</div>
+        </div>`;
+      }).join('');
     }
 
     // ── MEMORY ─────────────────────────────────────────────────────────────────
@@ -1240,13 +1253,16 @@
 
     // ── CHAT ───────────────────────────────────────────────────────────────────
     function getSystemPrompt() {
+      const now = new Date().toISOString();
       const memStr = memories.length ? `\n\nKnown facts about the user:\n${memories.map(m => '- ' + m).join('\n')}` : '';
-      const taskStr = tasks.length ? `\n\nUser's current tasks:\n${tasks.map(t => `- [${t.done ? 'done' : 'todo'}] ${t.text}`).join('\n')}` : '';
+      const taskStr = tasks.length ? `\n\nUser's current tasks:\n${tasks.map(t => `- [${t.done ? 'done' : 'todo'}] ${t.text}${t.reminderTime ? ' (reminder: ' + t.reminderTime + ')' : ''}`).join('\n')}` : '';
       return `You are ARIA, a warm, intelligent, and highly capable personal AI assistant. You are proactive, concise, and genuinely helpful.
+
+Current date/time: ${now}
 
 Key behaviors:
 1. MEMORY: When the user shares important personal facts (name, job, preferences, goals, etc.), extract them. Reply with a JSON block like: <memory>{"fact": "short fact here"}</memory>
-2. TASKS: When the user wants to add a task or reminder, extract it. Reply with: <task>{"text": "task text"}</task>
+2. TASKS: When the user wants to add a task or reminder, extract it. If they mention a time (e.g. "at 5pm", "tomorrow at 9am", "in 2 hours"), calculate the exact datetime from the current date/time above and include it as reminderTime in ISO 8601 format. Reply with: <task>{"text": "task text", "reminderTime": "2024-01-15T17:00:00"}</task>. If no time is mentioned, omit reminderTime entirely.
 3. Be conversational and warm. Use markdown-style formatting sparingly in your actual text (bold for key points, etc.).
 4. Keep responses focused and helpful — never verbose.${memStr}${taskStr}`;
     }
@@ -1264,7 +1280,7 @@ Key behaviors:
       }
       if (taskMatch) {
         taskMatch.forEach(t => {
-          try { const d = JSON.parse(t.replace(/<\/?task>/g, '')); if (d.text) addTask(d.text); } catch (e) { }
+          try { const d = JSON.parse(t.replace(/<\/?task>/g, '')); if (d.text) addTask(d.text, d.reminderTime || null); } catch (e) { }
           displayText = displayText.replace(t, '').trim();
         });
       }
@@ -1462,6 +1478,37 @@ Key behaviors:
 
     // ── Boot ───────────────────────────────────────────────────────────────────
     initFirebase();
+
+    // ── REMINDERS ─────────────────────────────────────────────────────────────
+    async function requestNotificationPermission() {
+      if (!('Notification' in window)) return;
+      if (Notification.permission === 'default') {
+        await Notification.requestPermission();
+      }
+    }
+
+    function checkReminders() {
+      if (Notification.permission !== 'granted') return;
+      const now = new Date();
+      tasks.forEach(t => {
+        if (t.done || t.reminded || !t.reminderTime) return;
+        const reminderDate = new Date(t.reminderTime);
+        if (isNaN(reminderDate)) return;
+        const diff = reminderDate - now;
+        if (diff <= 0 && diff > -60000) {
+          t.reminded = true;
+          saveToFirebase();
+          new Notification('ARIA Reminder ⏰', {
+            body: t.text,
+            icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%236c5ce7"/><text y=".9em" font-size="70" x="15" fill="white">A</text></svg>'
+          });
+          appendMessage('assistant', '⏰ Reminder: **' + t.text + '**');
+        }
+      });
+    }
+
+    requestNotificationPermission();
+    setInterval(checkReminders, 30000);
   </script>
   <!-- Mobile bottom nav -->
   <nav class="mobile-nav" id="mobileNav">
